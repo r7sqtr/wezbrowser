@@ -47,6 +47,7 @@ pub mod termwiztermtab;
 pub mod tmux;
 pub mod tmux_commands;
 mod tmux_pty;
+pub mod webview_pane;
 pub mod window;
 
 use crate::activity::Activity;

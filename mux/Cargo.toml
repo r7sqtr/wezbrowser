@@ -59,5 +59,8 @@ winapi = { workspace=true, features = [
     "tlhelp32",
 ]}
 
+# WebView integration
+wry.workspace = true
+
 [dev-dependencies]
 k9.workspace = true

@@ -639,6 +639,21 @@ pub enum KeyAssignment {
 
     ResetTerminal,
     OpenUri(String),
+    /// Opens a WebView pane with the specified URL
+    SplitWebView {
+        url: String,
+        direction: PaneDirection,
+        #[dynamic(default)]
+        size: SplitSize,
+    },
+    /// Navigate back in WebView history
+    WebViewGoBack,
+    /// Navigate forward in WebView history
+    WebViewGoForward,
+    /// Reload WebView
+    WebViewReload,
+    /// Navigate WebView to a URL
+    WebViewNavigate(String),
     ActivateCommandPalette,
     ActivateWindow(usize),
     ActivateWindowRelative(isize),

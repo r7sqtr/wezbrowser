@@ -1995,6 +1995,52 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
                 },
             }
         }
+        SplitWebView { url, direction, .. } => {
+            CommandDef {
+                brief: format!("Open WebView: {} ({:?})", url, direction).into(),
+                doc: format!("Open a WebView pane with URL: {}", url).into(),
+                keys: vec![],
+                args: &[ArgType::ActivePane],
+                menubar: &[],
+                icon: match direction {
+                    PaneDirection::Up | PaneDirection::Down => Some("cod_split_vertical"),
+                    PaneDirection::Left | PaneDirection::Right => Some("cod_split_horizontal"),
+                    PaneDirection::Next | PaneDirection::Prev => Some("md_web"),
+                },
+            }
+        }
+        WebViewGoBack => CommandDef {
+            brief: "WebView: Go Back".into(),
+            doc: "Navigate back in WebView history".into(),
+            keys: vec![],
+            args: &[ArgType::ActivePane],
+            menubar: &[],
+            icon: Some("md_arrow_back"),
+        },
+        WebViewGoForward => CommandDef {
+            brief: "WebView: Go Forward".into(),
+            doc: "Navigate forward in WebView history".into(),
+            keys: vec![],
+            args: &[ArgType::ActivePane],
+            menubar: &[],
+            icon: Some("md_arrow_forward"),
+        },
+        WebViewReload => CommandDef {
+            brief: "WebView: Reload".into(),
+            doc: "Reload the current WebView page".into(),
+            keys: vec![],
+            args: &[ArgType::ActivePane],
+            menubar: &[],
+            icon: Some("md_refresh"),
+        },
+        WebViewNavigate(url) => CommandDef {
+            brief: format!("WebView: Navigate to {}", url).into(),
+            doc: format!("Navigate WebView to {}", url).into(),
+            keys: vec![],
+            args: &[ArgType::ActivePane],
+            menubar: &[],
+            icon: Some("md_web"),
+        },
         ResetTerminal => CommandDef {
             brief: "Reset the terminal emulation state in the current pane".into(),
             doc: "Reset the terminal emulation state in the current pane".into(),

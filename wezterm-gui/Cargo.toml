@@ -72,6 +72,7 @@ portable-pty = { workspace=true, features = ["serde_support"]}
 promise.workspace = true
 rangeset.workspace = true
 ratelim.workspace = true
+raw-window-handle.workspace = true
 rayon.workspace = true
 regex.workspace = true
 serde = {workspace=true, features = ["rc", "derive"]}
@@ -106,6 +107,7 @@ wezterm-toast-notification.workspace = true
 wgpu.workspace = true
 window-funcs.workspace = true
 window.workspace = true
+wry.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 shared_library.workspace = true

@@ -1,8 +1,10 @@
+use crate::termwindow::webview::is_webview_pane;
 use crate::termwindow::{RenderFrame, TermWindowNotif};
 use ::window::bitmaps::atlas::OutOfTextureSpace;
 use ::window::WindowOps;
 use anyhow::Context;
 use smol::Timer;
+use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use wezterm_font::ClearShapeCache;
 
@@ -173,6 +175,22 @@ impl crate::TermWindow {
         let focused = self.focused.is_some();
         let window_is_transparent =
             !self.window_background.is_empty() || self.config.window_background_opacity != 1.0;
+
+        // Clean up WebViews for panes that no longer exist
+        {
+            let current_webview_pane_ids: HashSet<_> = panes
+                .iter()
+                .filter(|p| is_webview_pane(&p.pane))
+                .map(|p| p.pane.pane_id())
+                .collect();
+            let active_webview_ids = self.webview_manager.active_pane_ids();
+            for pane_id in active_webview_ids {
+                if !current_webview_pane_ids.contains(&pane_id) {
+                    log::info!("Cleaning up stale WebView for pane {}", pane_id);
+                    self.webview_manager.remove_webview(pane_id);
+                }
+            }
+        }
 
         let start = Instant::now();
         let gl_state = self.render_state.as_ref().unwrap();

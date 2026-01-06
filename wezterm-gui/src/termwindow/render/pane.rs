@@ -5,6 +5,7 @@ use crate::termwindow::render::{
     same_hyperlink, CursorProperties, LineQuadCacheKey, LineQuadCacheValue, LineToEleShapeCacheKey,
     RenderScreenLineParams,
 };
+use crate::termwindow::webview::{is_webview_pane, WebViewRect};
 use crate::termwindow::{ScrollHit, UIItem, UIItemType};
 use ::window::bitmaps::TextureRect;
 use ::window::DeadKeyStatus;
@@ -13,6 +14,7 @@ use config::VisualBellTarget;
 use mux::pane::{PaneId, WithPaneLines};
 use mux::renderable::{RenderableDimensions, StableCursorPosition};
 use mux::tab::PositionedPane;
+use mux::webview_pane::WebViewPane;
 use ordered_float::NotNan;
 use std::time::Instant;
 use wezterm_dynamic::Value;
@@ -36,6 +38,11 @@ impl crate::TermWindow {
     ) -> anyhow::Result<()> {
         if self.config.use_box_model_render {
             return self.paint_pane_box_model(pos);
+        }
+
+        // Check if this is a WebViewPane and handle it specially
+        if is_webview_pane(&pos.pane) {
+            return self.paint_webview_pane(pos);
         }
 
         self.check_for_dirty_lines_and_invalidate_selection(&pos.pane);
@@ -685,5 +692,104 @@ impl crate::TermWindow {
             baseline: 1.0,
             content: ComputedElementContent::Children(vec![]),
         })
+    }
+
+    /// Paint a WebViewPane by creating/updating its WebView overlay
+    fn paint_webview_pane(&mut self, pos: &PositionedPane) -> anyhow::Result<()> {
+        let pane_id = pos.pane.pane_id();
+
+        // Calculate the pixel position and size for the WebView
+        // Use the same logic as background_rect for accurate positioning
+        let (padding_left, padding_top) = self.padding_left_top();
+        let tab_bar_height = if self.show_tab_bar {
+            self.tab_bar_pixel_height()
+                .context("tab_bar_pixel_height")?
+        } else {
+            0.
+        };
+        let (top_bar_height, _bottom_bar_height) = if self.config.tab_bar_at_bottom {
+            (0.0, tab_bar_height)
+        } else {
+            (tab_bar_height, 0.0)
+        };
+
+        let border = self.get_os_border();
+        let top_pixel_y = top_bar_height + padding_top + border.top.get() as f32;
+        let cell_width = self.render_metrics.cell_size.width as f32;
+        let cell_height = self.render_metrics.cell_size.height as f32;
+
+        // Calculate WebView position using the same logic as background_rect
+        let (x, width_delta) = if pos.left == 0 {
+            (
+                0.,
+                padding_left + border.left.get() as f32 + (cell_width / 2.0),
+            )
+        } else {
+            (
+                padding_left + border.left.get() as f32 - (cell_width / 2.0)
+                    + (pos.left as f32 * cell_width),
+                cell_width,
+            )
+        };
+
+        let (y, height_delta) = if pos.top == 0 {
+            (
+                (top_pixel_y - padding_top),
+                padding_top + (cell_height / 2.0),
+            )
+        } else {
+            (
+                top_pixel_y + (pos.top as f32 * cell_height) - (cell_height / 2.0),
+                cell_height,
+            )
+        };
+
+        let width = if pos.left + pos.width >= self.terminal_size.cols as usize {
+            self.dimensions.pixel_width as f32 - x
+        } else {
+            (pos.width as f32 * cell_width) + width_delta
+        };
+
+        let height = if pos.top + pos.height >= self.terminal_size.rows as usize {
+            self.dimensions.pixel_height as f32 - y
+        } else {
+            (pos.height as f32 * cell_height) + height_delta
+        };
+
+        // Calculate scale factor from DPI (standard DPI is 72 on macOS)
+        let scale_factor = self.dimensions.dpi as f64 / 72.0;
+
+        let rect = WebViewRect::new(x as f64, y as f64, width as f64, height as f64, scale_factor);
+
+        // Get the URL from the WebViewPane
+        let url = if let Some(webview_pane) = pos.pane.downcast_ref::<WebViewPane>() {
+            webview_pane.current_url()
+        } else {
+            // Fallback URL if we can't get the actual URL
+            "about:blank".to_string()
+        };
+
+        // Create or update the WebView
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(window) = self.window.as_ref() {
+                if let Err(e) = self.webview_manager.create_or_update_webview(
+                    pane_id,
+                    &url,
+                    rect,
+                    window,
+                ) {
+                    log::error!("Failed to create/update WebView: {}", e);
+                }
+            }
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (url, rect); // Suppress unused variable warnings
+            log::warn!("WebView is only supported on macOS");
+        }
+
+        Ok(())
     }
 }

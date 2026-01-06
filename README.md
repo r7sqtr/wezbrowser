@@ -1,40 +1,76 @@
-# Wez's Terminal
+# WezBrowser
 
-<img height="128" alt="WezTerm Icon" src="https://raw.githubusercontent.com/wezterm/wezterm/main/assets/icon/wezterm-icon.svg" align="left"> *A GPU-accelerated cross-platform terminal emulator and multiplexer written by <a href="https://github.com/wez">@wez</a> and implemented in <a href="https://www.rust-lang.org/">Rust</a>*
+WezTermベースのWebView統合ターミナルエミュレータ。
+ターミナルとブラウザを同一ウィンドウ内で分割表示できます。
 
-User facing docs and guide at: https://wezterm.org/
+![macOS](https://img.shields.io/badge/platform-macOS-blue)
+![Rust](https://img.shields.io/badge/language-Rust-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-![Screenshot](docs/screenshots/two.png)
+## 特徴
 
-*Screenshot of wezterm on macOS, running vim*
+- ターミナルとWebViewを同一ウィンドウで分割表示
+- ローカル開発サーバーを見ながらコーディング
+- ドキュメント参照しながらターミナル操作
+- WezTermの全機能を継承（GPU加速、Lua設定、マルチプレクサ等）
 
-## Installation
+## 使い方
 
-https://wezterm.org/installation
+### WebViewを開く
 
-## Getting help
+| キー | 説明 |
+|------|------|
+| `Option+Shift+O` | URL入力 → 右に分割表示 |
+| `Option+Shift+U` | URL入力 → 下に分割表示 |
 
-This is a spare time project, so please bear with me.  There are a couple of channels for support:
+### ナビゲーション
 
-* You can use the [GitHub issue tracker](https://github.com/wezterm/wezterm/issues) to see if someone else has a similar issue, or to file a new one.
-* Start or join a thread in our [GitHub Discussions](https://github.com/wezterm/wezterm/discussions); if you have general
-  questions or want to chat with other wezterm users, you're welcome here!
-* There is a [Matrix room via Element.io](https://app.element.io/#/room/#wezterm:matrix.org)
-  for (potentially!) real time discussions.
+| キー | 説明 |
+|------|------|
+| `Option+[` | 戻る |
+| `Option+]` | 進む |
+| `Option+R` | リロード |
+| `Option+W` | ペインを閉じる |
 
-The GitHub Discussions and Element/Gitter rooms are better suited for questions
-than bug reports, but don't be afraid to use whichever you are most comfortable
-using and we'll work it out.
+## 設定
 
-## Supporting the Project
+`~/.config/wezterm/wezterm.lua` でカスタマイズ可能。
 
-If you use and like WezTerm, please consider sponsoring it: your support helps
-to cover the fees required to maintain the project and to validate the time
-spent working on it!
+```lua
+local wezterm = require("wezterm")
+local act = wezterm.action
 
-[Read more about sponsoring](https://wezterm.org/sponsor.html).
+return {
+  keys = {
+    -- YouTube を Option+Shift+Y で開く
+    {
+      key = "y",
+      mods = "ALT|SHIFT",
+      action = act.SplitWebView({
+        url = "https://youtube.com",
+        direction = "Right",
+      }),
+    },
+  },
+}
+```
 
-* [![Sponsor WezTerm](https://img.shields.io/github/sponsors/wez?label=Sponsor%20WezTerm&logo=github&style=for-the-badge)](https://github.com/sponsors/wez)
-* [Patreon](https://patreon.com/WezFurlong)
-* [Ko-Fi](https://ko-fi.com/wezfurlong)
-* [Liberapay](https://liberapay.com/wez)
+## 利用可能なアクション
+
+- `SplitWebView({ url, direction })` - WebViewを分割表示
+- `WebViewGoBack` - 履歴を戻る
+- `WebViewGoForward` - 履歴を進む
+- `WebViewReload` - リロード
+
+## 制限事項
+
+- macOS専用（WebKitベース）
+- 初回起動時は右クリック→「開く」が必要（署名なしアプリのため）
+
+## クレジット
+
+[WezTerm](https://github.com/wez/wezterm) をベースにしています。
+
+## ライセンス
+
+MIT License - 詳細は [LICENSE.md](LICENSE.md) を参照

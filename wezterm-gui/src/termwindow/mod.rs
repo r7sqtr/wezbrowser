@@ -48,6 +48,7 @@ use mux::tab::{
     PositionedPane, PositionedSplit, SplitDirection, SplitRequest, SplitSize as MuxSplitSize, Tab,
     TabId,
 };
+use mux::webview_pane::WebViewPane;
 use mux::window::WindowId as MuxWindowId;
 use mux::{Mux, MuxNotification};
 use mux_lua::MuxPane;
@@ -83,8 +84,12 @@ pub mod resize;
 mod selection;
 pub mod spawn;
 pub mod webgpu;
+pub mod webview;
 use crate::spawn::SpawnWhere;
 use prevcursor::PrevCursorPos;
+// WebView integration (will be used when TermWindow is extended)
+#[allow(unused_imports)]
+use webview::WebViewManager;
 
 const ATLAS_SIZE: usize = 128;
 
@@ -462,6 +467,8 @@ pub struct TermWindow {
 
     gl: Option<Rc<glium::backend::Context>>,
     webgpu: Option<Rc<WebGpuState>>,
+    /// WebView manager for WebViewPane overlays
+    webview_manager: webview::WebViewManager,
     config_subscription: Option<config::ConfigSubscription>,
 }
 
@@ -688,6 +695,7 @@ impl TermWindow {
             os_parameters: None,
             gl: None,
             webgpu: None,
+            webview_manager: webview::WebViewManager::new(),
             window: None,
             window_background,
             config: config.clone(),
@@ -3154,6 +3162,77 @@ impl TermWindow {
             }
             OpenUri(link) => {
                 wezterm_open_url::open_url(link);
+            }
+            SplitWebView { url, direction, size } => {
+                log::info!("SplitWebView: url={}, direction={:?}, size={:?}", url, direction, size);
+
+                // Get the current tab
+                let mux = Mux::get();
+                let tab = match mux.get_active_tab_for_window(self.mux_window_id) {
+                    Some(tab) => tab,
+                    None => {
+                        log::error!("No active tab for SplitWebView");
+                        return Ok(PerformAssignmentResult::Handled);
+                    }
+                };
+
+                // Calculate split direction
+                let split_direction = match direction {
+                    PaneDirection::Down | PaneDirection::Up => SplitDirection::Vertical,
+                    PaneDirection::Left | PaneDirection::Right => SplitDirection::Horizontal,
+                    PaneDirection::Next | PaneDirection::Prev => {
+                        log::error!("Invalid direction {:?} for SplitWebView", direction);
+                        return Ok(PerformAssignmentResult::Handled);
+                    }
+                };
+
+                let target_is_second = match direction {
+                    PaneDirection::Down | PaneDirection::Right => true,
+                    PaneDirection::Up | PaneDirection::Left => false,
+                    PaneDirection::Next | PaneDirection::Prev => unreachable!(),
+                };
+
+                let split_size = match size {
+                    SplitSize::Percent(n) => MuxSplitSize::Percent(*n),
+                    SplitSize::Cells(n) => MuxSplitSize::Cells(*n),
+                };
+
+                // Create WebView pane
+                let domain_id = pane.domain_id();
+                let terminal_size = tab.get_size();
+                let webview_pane: Arc<dyn Pane> = WebViewPane::with_url(domain_id, url, terminal_size);
+
+                // Register pane with mux
+                mux.add_pane(&webview_pane)?;
+
+                // Use the active pane index for splitting
+                let pane_index = tab.get_active_idx();
+                let request = SplitRequest {
+                    direction: split_direction,
+                    target_is_second,
+                    size: split_size,
+                    top_level: false,
+                };
+
+                if let Err(e) = tab.split_and_insert(pane_index, request, webview_pane) {
+                    log::error!("Failed to split and insert WebView pane: {}", e);
+                }
+            }
+            WebViewGoBack => {
+                let pane_id = pane.pane_id();
+                self.webview_manager.go_back(pane_id);
+            }
+            WebViewGoForward => {
+                let pane_id = pane.pane_id();
+                self.webview_manager.go_forward(pane_id);
+            }
+            WebViewReload => {
+                let pane_id = pane.pane_id();
+                self.webview_manager.reload(pane_id);
+            }
+            WebViewNavigate(url) => {
+                let pane_id = pane.pane_id();
+                self.webview_manager.navigate(pane_id, url);
             }
             ActivateCommandPalette => {
                 let modal = crate::termwindow::palette::CommandPalette::new(self);
